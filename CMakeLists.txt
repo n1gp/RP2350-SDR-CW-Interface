@@ -19,14 +19,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# RP2350
-set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
-
-set(PICO_SDK_PATH C:/Users/k7mdl/.pico-sdk/sdk/2.3.0)
+set(PICO_SDK_PATH /home/mh/Desktop/SDR/HPSDR/PICO/pico-sdk)
 #include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-set(PICO_EXTRAS_PATH D:/Documents/GitHub/pico-extras)
+#set(PICO_EXTRAS_PATH ${PICO_SDK_PATH}/pico-examples)
+set(PICO_EXTRAS_PATH /home/mh/Desktop/SDR/HPSDR/PICO/pico-extras)
 #include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 include(${PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
@@ -47,6 +45,16 @@ option(RP2350_USB_AUDIO_DUPLEX_CDC "Build RX speaker + TX microphone + CDC" OFF)
 option(RP2350_USB_AUDIO_DUPLEX_CDC_MIDI "Build RX speaker + TX microphone + CDC + MIDI" ON)
 option(RP2350_PATCH_TINYUSB_RP2_ISO "Apply TinyUSB RP2 ISO reactivation fix #2937" ON)
 option(RP2350_LCD "Build LCD Feature" ON)
+option(RP2350_SUPPORT_RP2040 "Support RP2040" ON)
+
+if(RP2350_SUPPORT_RP2040)
+    message(STATUS "Configuring project for RP2040 backward compatibility")
+    set(PICO_BOARD pico CACHE STRING "Board type")
+    set(PICO_PLATFORM rp2040)
+else()
+    # RP2350
+    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
+endif()
 
 # Pico SDK initialiseren
 pico_sdk_init()
@@ -288,6 +296,10 @@ elseif(RP2350_USB_SPK_CDC_TEST)
     target_compile_definitions(rp2350-sdr-cw-interface PRIVATE RP2350_USB_SPK_CDC_TEST=1)
 elseif(RP2350_LCD)
     target_compile_definitions(rp2350-sdr-cw-interface PRIVATE RP2350_LCD=1)
+endif()
+
+if(RP2350_SUPPORT_RP2040)
+    target_compile_definitions(rp2350-sdr-cw-interface PRIVATE RP2350_SUPPORT_RP2040=1)
 endif()
 
 # Geen UART-debugging via GPIO0/GPIO1

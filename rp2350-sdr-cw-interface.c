@@ -296,6 +296,12 @@ void audio_startup() {
 
 int main(void)
 {
+#if RP2350_SUPPORT_RP2040
+    // Reconfigure PLL_SYS to generate exactly 122.88 MHz
+    // Parameters: PLL_SYS, REF_DIV (1), VCO_FREQ (1474.56 MHz), POST_DIV1 (6), POST_DIV2 (2)
+    // 12MHz (XOSC) / 1 * 123 = 1476 MHz (close enough to 1474.56 MHz target via SDK macros)
+    set_sys_clock_pll(1474.56 * MHZ, 6, 2);
+#else
     /*
      * Set sysclock to 153.6 MHz: VCO=768 MHz / postdiv=5.
      *
@@ -306,7 +312,7 @@ int main(void)
      * USB uses its own fixed 48 MHz PLL, unaffected by this change.
      */
     set_sys_clock_pll(768 * MHZ, 5, 1);
-
+#endif
     /*
      * TinyUSB initialiseert het samengestelde Audio + CDC + MIDI-apparaat.
      * pico_stdio_usb staat uit omdat dat eigen USB-descriptors gebruikt.

@@ -314,11 +314,18 @@ static bool configure_pio(
 
     sm_config_set_fifo_join(&data_config, PIO_FIFO_JOIN_TX);
 
+#ifdef RP2350_SUPPORT_RP2040
+    /*
+     * Sysclock = 122.88 MHz. Program uses 64 PIO cycles per stereo frame.
+     */
+    sm_config_set_clkdiv_int_frac(&data_config, 40, 0); // RP2040 using 122.88 MHz
+#else
     /*
      * Sysclock = 153.6 MHz. Program uses 64 PIO cycles per stereo frame.
      * 153600000 / (48000 * 64) = 50 exactly -> integer divider, no jitter.
      */
     sm_config_set_clkdiv_int_frac(&data_config, 50, 0);
+#endif
 
     pio_sm_init(pio, sm_data, data_offset, &data_config);
 
@@ -553,6 +560,9 @@ bool audio_i2s_start(void)
         13
     );
 
+#ifdef RP2350_SUPPORT_RP2040
+    channel_config_set_chain_to(&dma_config, state.dma_channel);              // retrigger on completion
+#endif
     /*
      * Configure DMA but do not start it yet.
      * We will synchronously enable both SMs first, then start DMA.
@@ -567,20 +577,26 @@ bool audio_i2s_start(void)
         /* Read address: aligned PCM ringbuffer. */
         audio_ring,
 
+#ifdef RP2350_SUPPORT_RP2040
+        0xFFFFFFFF,	/* RP2040: no endless mode — use max count */
+#else
         /* RP2350 hardware endless mode; the read-address ring stays cyclic. */
         dma_encode_endless_transfer_count(),
-
+#endif
         false
     );
 
     dma_channel_config capture_dma_config =
         dma_channel_get_default_config((uint)state.dma_capture_channel);
     channel_config_set_transfer_data_size(&capture_dma_config, DMA_SIZE_16);
+#ifndef RP2350_SUPPORT_RP2040
     channel_config_set_high_priority(&capture_dma_config, true);
+#endif
     channel_config_set_read_increment(&capture_dma_config, false);
     channel_config_set_write_increment(&capture_dma_config, true);
     channel_config_set_dreq(
         &capture_dma_config,
+#ifndef RP2350_SUPPORT_RP2040
         pio_get_dreq(state.pio, (uint)state.sm_capture, false)
     );
     channel_config_set_ring(&capture_dma_config, true, 12);
@@ -592,6 +608,20 @@ bool audio_i2s_start(void)
         &state.pio->rxf[state.sm_capture],
         /* RP2350 hardware endless mode; the write-address ring stays cyclic. */
         dma_encode_endless_transfer_count(),
+#else
+        pio_get_dreq(state.pio, (uint)state.sm_capture, true)
+    );
+    channel_config_set_ring(&capture_dma_config, true, __builtin_ctz(sizeof(capture_ring)));
+
+    channel_config_set_chain_to(&capture_dma_config, state.dma_capture_channel);              // retrigger on completion
+
+    dma_channel_configure(
+        (uint)state.dma_capture_channel,
+        &capture_dma_config,
+        capture_ring,                        /* read: PCM ring     */
+        &state.pio->txf[state.sm_capture],   /* write: PIO TX FIFO */
+        0xFFFFFFFF,                        /* RP2040: no endless mode — use max count */
+#endif
         false
     );
 
