@@ -100,7 +100,7 @@ extern const u8 asc2_1608[1520];
 #define POPUP_BAR_BACK_COLOR DARKGRAY
 
 static char lines[CW_TEXT_ROWS][CW_TEXT_COLS + 1u];
-static uint16_t line_colors[CW_TEXT_ROWS][CW_TEXT_COLS + 1u];
+static bool text_color[CW_TEXT_ROWS][CW_TEXT_COLS + 1u];
 static uint8_t cursor_column;
 static volatile uint8_t dirty_rows;
 static uint32_t level_bar_next_update_ms;
@@ -208,7 +208,7 @@ static void draw_row(uint8_t row) {
     // Draw background block for the row (or per character)
     for (uint8_t col = 0u; col < CW_TEXT_COLS; ++col) {
         char ch = padded[col];
-        uint16_t col_color = line_colors[row][col];
+        uint16_t col_color = text_color[row][col] ? CW_TEXT_PADDLE_COLOR : CW_TEXT_READER_COLOR;
         if (col_color == 0u) col_color = CW_TEXT_READER_COLOR; // default fallback
         draw_scaled_char(x, y, ch, CW_TEXT_GLYPH_W, CW_TEXT_GLYPH_H, col_color);
         x = (uint16_t)(x + CW_TEXT_GLYPH_W);
@@ -356,7 +356,7 @@ static void scroll_up(void)
 {
     for (uint8_t row = 0u; row + 1u < CW_TEXT_ROWS; ++row) {
         memcpy(lines[row], lines[row + 1u], sizeof(lines[row]));
-        memcpy(line_colors[row], line_colors[row + 1u], sizeof(line_colors[row]));
+        memcpy(text_color[row], text_color[row + 1u], sizeof(text_color[row]));
     }
     lines[CW_TEXT_ROWS - 1u][0] = '\0';
     cursor_column = 0u;
@@ -384,7 +384,7 @@ void cw_text_display_init(void)
 
 void cw_text_display_put_char(char c, bool from_winkeyer)
 {
-    uint16_t char_color = winkey_emulator_get_ptt_output() ? CW_TEXT_PADDLE_COLOR : CW_TEXT_READER_COLOR;
+    bool paddle_color = winkey_emulator_get_ptt_output() ? true : false;
     cw_display_source_t source = cw_display_source_get();
     bool allowed = from_winkeyer
         ? (source == CW_DISPLAY_SOURCE_ALL || source == CW_DISPLAY_SOURCE_WINKEYER)
@@ -403,7 +403,7 @@ void cw_text_display_put_char(char c, bool from_winkeyer)
         scroll_up();
     }
     lines[CW_TEXT_ROWS - 1u][cursor_column] = c;
-    line_colors[CW_TEXT_ROWS - 1u][cursor_column] = char_color;
+    text_color[CW_TEXT_ROWS - 1u][cursor_column] = paddle_color;
     lines[CW_TEXT_ROWS - 1u][cursor_column + 1u] = '\0';
     ++cursor_column;
     dirty_rows |= (uint8_t)(1u << (CW_TEXT_ROWS - 1u));
