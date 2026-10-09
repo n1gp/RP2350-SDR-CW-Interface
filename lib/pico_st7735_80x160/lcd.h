@@ -11,8 +11,8 @@ typedef short i16;
 typedef long  i32;
 
 // Leave below lines commented out when using Seengreat WM8960+ST7735 TFT 0.96" display
-//#define HALDZEMO_ST7789_170x320 1
-#define XIITIA_ST7735_80x160 1
+#define HALDZEMO_ST7789_170x320 1
+//#define XIITIA_ST7735_80x160 1
 
 #ifndef SPI_CLK_FREQ_DEFAULT
 #ifdef HALDZEMO_ST7789_170x320

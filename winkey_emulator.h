@@ -30,6 +30,7 @@ void winkey_emulator_task(void);
 void winkey_emulator_send_midi_wheel_step(int direction);
 void winkey_emulator_set_speed(uint8_t wpm);
 uint8_t winkey_emulator_get_speed(void);
+bool winkey_emulator_get_ptt_output(void);
 void winkey_emulator_set_sidetone_frequency(uint16_t frequency_hz);
 uint16_t winkey_emulator_get_sidetone_frequency(void);
 void winkey_emulator_set_mode(winkey_mode_t mode);

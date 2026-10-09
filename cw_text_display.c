@@ -9,6 +9,7 @@
 
 #include "cw_decoder.h"
 #include "cw_display_source.h"
+#include "winkey_emulator.h"
 #include "lcd.h"
 #include "pico/time.h"
 
@@ -35,7 +36,8 @@ extern const u8 asc2_1608[1520];
 #define CW_TEXT_GLYPH_W    16u
 #define CW_TEXT_GLYPH_H    22u
 #define CW_TEXT_ROW_HEIGHT CW_TEXT_GLYPH_H
-#define CW_TEXT_COLOR      GREEN
+#define CW_TEXT_READER_COLOR      GREEN
+#define CW_TEXT_PADDLE_COLOR      WHITE
 #define CW_TEXT_ALL_ROWS_MASK ((1u << CW_TEXT_ROWS) - 1u)
 
 /*
@@ -98,6 +100,7 @@ extern const u8 asc2_1608[1520];
 #define POPUP_BAR_BACK_COLOR DARKGRAY
 
 static char lines[CW_TEXT_ROWS][CW_TEXT_COLS + 1u];
+static uint16_t line_colors[CW_TEXT_ROWS][CW_TEXT_COLS + 1u];
 static uint8_t cursor_column;
 static volatile uint8_t dirty_rows;
 static uint32_t level_bar_next_update_ms;
@@ -191,19 +194,25 @@ static void draw_value_bar(
     }
 }
 
-static void draw_row(uint8_t row)
-{
+static void draw_row(uint8_t row) {
+    // Clear/draw background row first or draw character-by-character
+    uint16_t x = CW_TEXT_LEFT_X;
+    uint16_t y = (uint16_t)(CW_TEXT_TOP_Y + row * CW_TEXT_ROW_HEIGHT);
+
+    // First, clear the entire row box to BACK_COLOR to prevent ghosting
     char padded[CW_TEXT_COLS + 1u];
     memset(padded, ' ', CW_TEXT_COLS);
     padded[CW_TEXT_COLS] = '\0';
     memcpy(padded, lines[row], strlen(lines[row]));
-
-    draw_large_text(
-        CW_TEXT_LEFT_X,
-        (uint16_t)(CW_TEXT_TOP_Y + row * CW_TEXT_ROW_HEIGHT),
-        padded,
-        CW_TEXT_COLOR
-    );
+    
+    // Draw background block for the row (or per character)
+    for (uint8_t col = 0u; col < CW_TEXT_COLS; ++col) {
+        char ch = padded[col];
+        uint16_t col_color = line_colors[row][col];
+        if (col_color == 0u) col_color = CW_TEXT_READER_COLOR; // default fallback
+        draw_scaled_char(x, y, ch, CW_TEXT_GLYPH_W, CW_TEXT_GLYPH_H, col_color);
+        x = (uint16_t)(x + CW_TEXT_GLYPH_W);
+    }
 }
 
 static void redraw_all(void)
@@ -347,6 +356,7 @@ static void scroll_up(void)
 {
     for (uint8_t row = 0u; row + 1u < CW_TEXT_ROWS; ++row) {
         memcpy(lines[row], lines[row + 1u], sizeof(lines[row]));
+        memcpy(line_colors[row], line_colors[row + 1u], sizeof(line_colors[row]));
     }
     lines[CW_TEXT_ROWS - 1u][0] = '\0';
     cursor_column = 0u;
@@ -374,6 +384,7 @@ void cw_text_display_init(void)
 
 void cw_text_display_put_char(char c, bool from_winkeyer)
 {
+    uint16_t char_color = winkey_emulator_get_ptt_output() ? CW_TEXT_PADDLE_COLOR : CW_TEXT_READER_COLOR;
     cw_display_source_t source = cw_display_source_get();
     bool allowed = from_winkeyer
         ? (source == CW_DISPLAY_SOURCE_ALL || source == CW_DISPLAY_SOURCE_WINKEYER)
@@ -392,6 +403,7 @@ void cw_text_display_put_char(char c, bool from_winkeyer)
         scroll_up();
     }
     lines[CW_TEXT_ROWS - 1u][cursor_column] = c;
+    line_colors[CW_TEXT_ROWS - 1u][cursor_column] = char_color;
     lines[CW_TEXT_ROWS - 1u][cursor_column + 1u] = '\0';
     ++cursor_column;
     dirty_rows |= (uint8_t)(1u << (CW_TEXT_ROWS - 1u));

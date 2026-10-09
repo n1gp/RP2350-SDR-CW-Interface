@@ -1600,6 +1600,11 @@ uint8_t winkey_emulator_get_speed(void)
     return effective_speed();
 }
 
+bool winkey_emulator_get_ptt_output(void)
+{
+    return ptt_output;
+}
+
 void winkey_emulator_set_sidetone_frequency(uint16_t frequency_hz)
 {
     if (frequency_hz < 300u) {
