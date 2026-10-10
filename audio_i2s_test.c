@@ -609,7 +609,7 @@ bool audio_i2s_start(void)
         /* RP2350 hardware endless mode; the write-address ring stays cyclic. */
         dma_encode_endless_transfer_count(),
 #else
-        pio_get_dreq(state.pio, (uint)state.sm_capture, true)
+        pio_get_dreq(state.pio, (uint)state.sm_capture, false)
     );
     channel_config_set_ring(&capture_dma_config, true, __builtin_ctz(sizeof(capture_ring)));
 
@@ -619,7 +619,7 @@ bool audio_i2s_start(void)
         (uint)state.dma_capture_channel,
         &capture_dma_config,
         capture_ring,                        /* read: PCM ring     */
-        &state.pio->txf[state.sm_capture],   /* write: PIO TX FIFO */
+        &state.pio->rxf[state.sm_capture],   /* write: PIO TX FIFO */
         0xFFFFFFFF,                        /* RP2040: no endless mode — use max count */
 #endif
         false
